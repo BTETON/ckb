@@ -1,6 +1,6 @@
 [package]
 name = "ckb-db"
-version = "0.24.0"
+version = "0.25.0-pre"
 license = "MIT"
 authors = ["Nervos Core Dev <dev@nervos.org>"]
 edition = "2018"
@@ -16,4 +16,4 @@ libc = "0.2"
 
 [dependencies.rocksdb]
 git = "https://github.com/nervosnetwork/rust-rocksdb"
-rev = "ac1af8c"
+rev = "6cfc2cc"

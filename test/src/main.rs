@@ -300,6 +300,9 @@ fn all_specs() -> SpecMap {
         Box::new(ReferenceHeaderMaturity),
         Box::new(ValidSince),
         Box::new(SendLowFeeRateTx),
+        Box::new(SendLargeCyclesTxInBlock::new()),
+        Box::new(SendLargeCyclesTxToRelay::new()),
+        Box::new(SendArrowTxs),
         Box::new(FeeEstimate),
         Box::new(DifferentTxsWithSameInput),
         Box::new(CompactBlockEmpty),
@@ -364,6 +367,7 @@ fn all_specs() -> SpecMap {
         Box::new(ConflictInGap),
         Box::new(ConflictInProposed),
         Box::new(DAOVerify),
+        Box::new(AvoidDuplicatedProposalsWithUncles),
     ];
     specs.into_iter().map(|spec| (spec.name(), spec)).collect()
 }

@@ -9,7 +9,7 @@ use ckb_types::{
         cell::{
             resolve_transaction, OverlayCellProvider, ResolvedTransaction, TransactionsProvider,
         },
-        Capacity, TransactionView,
+        Capacity, Cycle, TransactionView,
     },
     packed::Byte32,
 };
@@ -83,6 +83,7 @@ pub struct VerifyTxsProcess {
     pub snapshot: Arc<Snapshot>,
     pub txs_verify_cache: HashMap<Byte32, CacheEntry>,
     pub txs: Option<Vec<ResolvedTransaction>>,
+    pub max_tx_verify_cycles: Cycle,
 }
 
 impl VerifyTxsProcess {
@@ -90,11 +91,13 @@ impl VerifyTxsProcess {
         snapshot: Arc<Snapshot>,
         txs_verify_cache: HashMap<Byte32, CacheEntry>,
         txs: Vec<ResolvedTransaction>,
+        max_tx_verify_cycles: Cycle,
     ) -> VerifyTxsProcess {
         VerifyTxsProcess {
             snapshot,
             txs_verify_cache,
             txs: Some(txs),
+            max_tx_verify_cycles,
         }
     }
 }
@@ -110,6 +113,7 @@ impl Future for VerifyTxsProcess {
             &self.snapshot,
             txs,
             &self.txs_verify_cache,
+            self.max_tx_verify_cycles,
         )?))
     }
 }
@@ -219,10 +223,10 @@ impl<'a> SubmitTxsExecutor<'a> {
                 tx_size,
                 related_dep_out_points,
             );
-            if match status {
+            let inserted = match status {
                 TxStatus::Fresh => {
                     let tx_hash = entry.transaction.hash();
-                    let inserted = self.tx_pool.add_pending(entry);
+                    let inserted = self.tx_pool.add_pending(entry)?;
                     if inserted {
                         let height = self.tx_pool.snapshot().tip_number();
                         let fee_rate = FeeRate::calculate(fee, tx_size);
@@ -232,9 +236,10 @@ impl<'a> SubmitTxsExecutor<'a> {
                     }
                     inserted
                 }
-                TxStatus::Gap => self.tx_pool.add_gap(entry),
-                TxStatus::Proposed => self.tx_pool.add_proposed(entry),
-            } {
+                TxStatus::Gap => self.tx_pool.add_gap(entry)?,
+                TxStatus::Proposed => self.tx_pool.add_proposed(entry)?,
+            };
+            if inserted {
                 self.tx_pool
                     .update_statics_for_add_tx(tx_size, cache_entry.cycles);
             }
@@ -316,6 +321,7 @@ fn verify_rtxs(
     snapshot: &Snapshot,
     txs: Vec<ResolvedTransaction>,
     txs_verify_cache: &HashMap<Byte32, CacheEntry>,
+    max_tx_verify_cycles: Cycle,
 ) -> Result<Vec<(ResolvedTransaction, CacheEntry)>, Error> {
     let tip_header = snapshot.tip_header();
     let tip_number = tip_header.number();
@@ -346,7 +352,7 @@ fn verify_rtxs(
                     consensus,
                     snapshot,
                 )
-                .verify(consensus.max_block_cycles())
+                .verify(max_tx_verify_cycles)
                 .map(|cycles| (tx, cycles))
             }
         })

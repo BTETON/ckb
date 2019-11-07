@@ -43,7 +43,7 @@ impl PrefilledVerifier {
             }
         }
 
-        // Check highest prefilled index is less then length of block transactions
+        // Check highest prefilled index is less than length of block transactions
         if !prefilled_transactions.is_empty() {
             let index: usize = prefilled_transactions
                 .get(prefilled_transactions.len() - 1)
@@ -75,9 +75,11 @@ impl ShortIdsVerifier {
             return Err(Error::Misbehavior(Misbehavior::DuplicatedShortIds));
         }
 
-        // Check intersection of prefilled transactions and short ids
+        // Check intersection of prefilled transactions and short ids.
+        // Cellbase is skipped since it's always prefilled and has the chances of collision with other txs
         let is_intersect = prefilled_transactions
             .into_iter()
+            .skip(1)
             .any(|pt| short_ids_set.contains(&pt.transaction().proposal_short_id()));
         if is_intersect {
             return Err(Error::Misbehavior(
